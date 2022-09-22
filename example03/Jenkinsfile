@@ -1,0 +1,100 @@
+// NOTE, the "pipeline" directive/closure from the declarative pipeline syntax needs to include, or be nested outside,
+// and "openshift" directive/closure from the OpenShift Client Plugin for Jenkins.  Otherwise, the declarative pipeline engine
+// will not be fully engaged.
+// import io.jenkins.plugins.casc.ConfigurationAsCode;
+// Set Project Name
+def project = "vault-jenkins"
+
+def secret_mongodb = [
+  [path: 'secret/mongodb', engineVersion: 1, secretValues: [
+    [envVar: 'MONGODB_DATABASE', vaultKey: 'mongodb_database'],
+    [envVar: 'MONGODB_USERNAME', vaultKey: 'mongodb_username'],
+    [envVar: 'IP', vaultKey: 'ip'],
+    [envVar: 'MONGODB_PASSWORD', vaultKey: 'mongodb_password'],
+    [envVar: 'MONGODB_ROOT_PASSWORD', vaultKey: 'mongodb_root_password'],
+    [envVar: 'PORT', vaultKey: 'port'],
+    [envVar: 'PROPPATH', vaultKey: 'proppath']]]]
+def secret_docker = [
+  [path: 'secret/docker/push', engineVersion: 1, secretValues:[
+    [envVar: 'DOCKERUSER', vaultKey: 'dockeruser'],
+    [envVar: 'DOCKERPASS', vaultKey: 'dockerpass']]]]
+
+//def PRUEBA =ConfigurationAsCode.get().configure("/var/tmp/jenkins.yaml")
+
+pipeline {
+    agent {
+      node {
+        // spin up a maven-skopeo-agent slave pod to run this build on
+        label 'maven-skopeo-agent'
+      }
+    }
+    options {
+        // set a timeout of 20 minutes for this pipeline
+        timeout(time: 20, unit: 'MINUTES')
+    }  
+    stages{  
+      stage('Cleanup') {
+            steps {
+                script {
+                    openshift.withCluster() {
+                        openshift.withProject("$project") {
+                            echo "Using project: ${openshift.project()}"
+                            openshift.selector("all", [ app : 'vault-mongodb' ]).delete()
+                            openshift.selector("secret", [ app : 'vault-mongodb' ]).delete()
+                            openshift.selector("all", [ app : 'vault-app-api' ]).delete()
+                        }
+                    }
+                }
+            }
+        }
+      stage('Deploy Mongodb') {
+            steps {
+                script {
+                    withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 2], vaultSecrets: secret_mongodb]){
+                        dir('example03'){
+                            sh "sed -i s/mongodb_root_pwd_b64/`echo -n ${MONGODB_ROOT_PASSWORD} | base64 -w 0`/g ./configuration/010-deploy-secret-mongodb-service.yaml"
+                            sh '''
+                                set +x
+                                sed -i s/mongodb_db_b64/`echo -n ${MONGODB_DATABASE} | base64 -w 0`/g ./configuration/010-deploy-secret-mongodb-service.yaml
+                                set -x 
+                            '''
+                            sh "sed -i s/mongodb_pwd_b64/`echo -n ${MONGODB_PASSWORD} | base64 -w 0`/g ./configuration/010-deploy-secret-mongodb-service.yaml"
+                            sh "sed -i s/mongodb_user_b64/`echo -n ${MONGODB_USERNAME} | base64 -w 0`/g ./configuration/010-deploy-secret-mongodb-service.yaml"
+                            echo "sed ok"
+                            openshift.withCluster() {
+                              openshift.withProject("$project") {
+                                openshift.raw('create', '-f ./configuration/010-deploy-secret-mongodb-service.yaml')
+                                }
+                            }
+                        }
+                    }                   
+                }
+            }
+        }
+      stage('Build and Deploy Vault-App') {
+            steps {
+              withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 2], vaultSecrets: secret_mongodb]) {
+              script {
+                openshift.withCluster() {
+                  openshift.withProject("$project") {
+                    openshift.newApp('https://github.com/ferluko/ocp-vault-poc.git --context-dir appointment --name vault-app-api -l app=vault-app-api -e MONGODB_USERNAME="$MONGODB_USERNAME" MONGODB_PASSWORD="$MONGODB_PASSWORD" MONGODB_DATABASE="$MONGODB_DATABASE" IP="$IP" PORT="$PORT" PROPPATH="$PROPPATH"')
+                    sleep(time: 120, unit: 'SECONDS')
+                    openshift.raw('expose', 'svc vault-app-api')
+                    }
+                  }
+                }
+              }   
+            }
+          }
+      stage('Copy Image to dockerHub Container Registry') {
+          steps {
+            withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 2], vaultSecrets: secret_docker]) {
+            echo "Copy image to dockerHub container registry"
+            script {
+              sh "skopeo copy --src-tls-verify=false --dest-tls-verify=false --src-creds openshift:\$(oc whoami -t) --dest-creds $DOCKERUSER:$DOCKERPASS docker://image-registry.openshift-image-registry.svc.cluster.local:5000/vault-jenkins/vault-app-api:latest docker://docker.io/semperti/ocp-vault-poc:latest"
+              }
+            }
+          }
+        }
+    }
+}
