@@ -50,7 +50,7 @@ pipeline {
       stage('Deploy Mongodb') {
             steps {
                 script {
-                    withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 2], vaultSecrets: secret_mongodb]){
+                    withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 1], vaultSecrets: secret_mongodb]){
                         dir('example03'){
                             sh "sed -i s/mongodb_root_pwd_b64/`echo -n ${MONGODB_ROOT_PASSWORD} | base64 -w 0`/g ./configuration/010-deploy-secret-mongodb-service.yaml"
                             sh '''
@@ -73,11 +73,11 @@ pipeline {
         }
       stage('Build and Deploy Vault-App') {
             steps {
-              withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 2], vaultSecrets: secret_mongodb]) {
+              withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 1], vaultSecrets: secret_mongodb]) {
               script {
                 openshift.withCluster() {
                   openshift.withProject("$project") {
-                    openshift.newApp('https://github.com/ferluko/ocp-vault-poc.git --context-dir appointment --name vault-app-api -l app=vault-app-api -e MONGODB_USERNAME="$MONGODB_USERNAME" MONGODB_PASSWORD="$MONGODB_PASSWORD" MONGODB_DATABASE="$MONGODB_DATABASE" IP="$IP" PORT="$PORT" PROPPATH="$PROPPATH"')
+                    openshift.newApp('https://github.com/martingaryulo/vault-jenkins-poc.git --context-dir appointment --name vault-app-api -l app=vault-app-api -e MONGODB_USERNAME="$MONGODB_USERNAME" MONGODB_PASSWORD="$MONGODB_PASSWORD" MONGODB_DATABASE="$MONGODB_DATABASE" IP="$IP" PORT="$PORT" PROPPATH="$PROPPATH"')
                     sleep(time: 120, unit: 'SECONDS')
                     openshift.raw('expose', 'svc vault-app-api')
                     }
@@ -88,7 +88,7 @@ pipeline {
           }
       stage('Copy Image to dockerHub Container Registry') {
           steps {
-            withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 2], vaultSecrets: secret_docker]) {
+            withVault([configuration: [skipSslVerification: true, vaultUrl: "$VAULT_ADDR", vaultCredentialId: 'vault_app_token', engineVersion: 1], vaultSecrets: secret_docker]) {
             echo "Copy image to dockerHub container registry"
             script {
               sh "skopeo copy --src-tls-verify=false --dest-tls-verify=false --src-creds openshift:\$(oc whoami -t) --dest-creds $DOCKERUSER:$DOCKERPASS docker://image-registry.openshift-image-registry.svc.cluster.local:5000/vault-jenkins/vault-app-api:latest docker://docker.io/semperti/ocp-vault-poc:latest"
