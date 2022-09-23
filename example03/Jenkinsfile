@@ -77,7 +77,7 @@ pipeline {
               script {
                 openshift.withCluster() {
                   openshift.withProject("$project") {
-                    openshift.newApp('https://github.com/martingaryulo/vault-jenkins-poc.git --context-dir appointment --name vault-app-api -l app=vault-app-api -e MONGODB_USERNAME="$MONGODB_USERNAME" MONGODB_PASSWORD="$MONGODB_PASSWORD" MONGODB_DATABASE="$MONGODB_DATABASE" IP="$IP" PORT="$PORT" PROPPATH="$PROPPATH"')
+                    openshift.newApp('https://github.com/ferluko/ocp-vault-poc.git --context-dir appointment --name vault-app-api -l app=vault-app-api -e MONGODB_USERNAME="$MONGODB_USERNAME" MONGODB_PASSWORD="$MONGODB_PASSWORD" MONGODB_DATABASE="$MONGODB_DATABASE" IP="$IP" PORT="$PORT" PROPPATH="$PROPPATH"')
                     sleep(time: 120, unit: 'SECONDS')
                     openshift.raw('expose', 'svc vault-app-api')
                     }
