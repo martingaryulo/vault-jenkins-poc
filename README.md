@@ -1,116 +1,140 @@
-# ocp-vault-poc Stage #2 - OCP + Vault + Jenkins
-Prueba de Concepto para la integración de Hashicorp Vault en pipelines CI/CD de Jenkins con compilación y despliegue en Openshift para Aplicaciones "No native Vault logic built-in".
- 
-## Introducción
-Estas instrucciones permitirán obtener una copia de la PoC funcional en su entorno para propósitos de construcción, integración y despliegue de diferentes aplicaciones y deferentes estrategias para la obtención de secretos desde Hashicorp Vault en un pipeline CI/CD de Jenkins.
+# PoC Jenkins integrado con Hashicorp Vault
+La presente PoC despliega Jenkins integrado con vault permitiendole lanzar pipelines que obtengan secretos desde Hashicorp Vault
+desde PODs en modo slave con base en imagenes de Skopeo y desplegados por el Sync plugin de Openshift.
 
-## Conceptos a ver...
-* Revisión de conceptos a generales de Vault
-* Policy/ Role/ Path Secret/ Token
-* Auth Methods: Token, AppRole
-* Engines: KV
-* Plugin de Vault para Jenkins
-* Plugin de Jenkins Configuration as a Code
+## Pre-requisitos
+- Vault instalado y en estado "unseal".
+- Root token de Hashicorp Vault.
+- Openshift en version 4.6 como minimo.
+- CLI de OCP.
 
-## Escenarios a cubrir...
-* [Example03](https://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc/tree/master/example03) - Recrear el escenario Original de [OCP-Vault-PoC Stage #1](https://github.com/ferluko/ocp-vault-poc)
-* [Example04](https://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc/tree/master/example04) - Aplicación Java 8 Stateless
-* [Example05](https://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc/tree/master/example05) - Aplicación Node.js con persistencia de datos
-
-### Pre-Requisitos
-_En tu entorno._
-
-* [Vault Server +1.4](https://learn.hashicorp.com/tutorials/vault/getting-started-install?in=vault/getting-started) - Desplegado e inicializado. URL y Token con privilegios válidos. Si aún no lo tiene y desea desplegarlo en Openshift v4.x, pueden utilizar un bash script de despliegue sencillo con posterior inicialización (incluye el unseal) disponible [aqui](https://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc/blob/master/bin/init_unseal_vault.sh).
-
-_En tu maquina local._
-* [Openshift CLI](https://docs.openshift.com/container-platform/4.2/cli_reference/openshift_cli/getting-started-cli.html) - Instalado y login configurado contra el cluster OCP.
-
-_NOTA: Este despliegue podrá sencillamente adaptarse a otras versiones de Kubernetes (GKE, AKS, PKS, etc) si se considera el despliegue de la aplicación sin la utilización de templates de Openshift o bien consultar el siguiente repositorio para manifiestos agnósticos al sabor de Kubernetes [link](http://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc.git)._
-
-## Comenzando
-_En tu maquina local._
-
-Clonamos el repositorio y creamos el proyecto ```vault-jenkins``` en Openshift
-
+### Pasos para replicar la presente PoC
+- Crear un directorio donde trabajaremos
+```sh
+mkdir poc
 ```
-export REPO_PIPELINE="http://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc.git"
-git clone ${REPO_PIPELINE} 
-cd jenkins-vault-poc
-oc new-project vault-jenkins
+- Clonar el repositorio hacia el directorio previamente creado https://github.com/martingaryulo/vault-jenkins-poc.git 
+
+```sh
+git clone https://github.com/martingaryulo/vault-jnkins-poc.git poc/
 ```
-## Ejecución del escenario
-Previo a la configuración y despliegue de Jenkins, es requerido preparar el escenario. Se realizará las tareas correspondientes en el entorno para su posterior ejecución exitosa en el pipeline. Esta tareas por ejemplo son: configuración del método de autenticación con Vault, crear los secretos ejemplos que luego serán obtenidos en el pipeline, armar la estrategia de despliegue de Openshift con referencia al Pipeline, entre otras. Cada escenario tiene su propio set de comandos y archivos de configuración. 
 
-Entonces se recomienda continuar la PoC con el Readme del propio escenario a ejecutar:
-* [Example03](https://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc/tree/master/example03) - Recrear el escenario Original de [OCP-Vault-PoC Stage #1](https://github.com/ferluko/ocp-vault-poc)
-* [Example04](https://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc/tree/master/example04) - Aplicación Java 8 Stateless
-* [Example05](https://gitlab.semperti.com/fernando.gonzalez/jenkins-vault-poc/tree/master/example05) - Aplicación Node.js con persistencia de datos
+- Ejecutar el bash script "setup_jenkins.sh" ubicado en bin/ pasandole los siguientes parametros como argumentos en este mismo orden:
 
-## Configuración y despliegue de Jenkins para todos los escenarios
-Una vez preparado el escenario en el paso anterior, se recomienda avanzar con la PoC realizando lo siguiente.
-### Building de Agente de Jenkins con Maven y Skopeo
-Para la compilación de los artefactos, ejecución de scripts y tareas auxiliares necesarias en todo pipeline CI/CD, utilizaremos un agente (slave) para Jenkins con la imagen de base Maven que Openshift provee por default en su registry: ```"image-registry.openshift-image-registry.svc:5000/openshift/jenkins-agent-maven"```. Es decir, al ejecutarse el pipeline Jenkins desplegará un pod con esta imagen para las tareas mencionadas. De esta forma nos ahorramos tener un slave siempre activo consumiendo recursos y solo lo desplegamos al momento de utilizarlo.
+REPO_PIPELINE= https://github.com/martingaryulo/vault-jenkins-poc.git
 
-En detalle, recompilaremos la imagen mencionada agregándole ```skopeo``` y ```ubi8/go-toolset``` y una vez finalizado llamaremos este ImageStream: ``` maven-skopeo-agent```.
+CONTEXT_DIR_PIPELINE= example03
 
-Más información del agente mencionado en su [Repositorio](https://github.com/openshift/jenkins/tree/master/agent-maven-3.5) oficial.
+VAULT_ADDR= https://vault.apps.cluster-lb9e59.lb9e59.sandbox2240.opentlc.com
+
+VAULT_TOKEN= s.niLyk4xPNUYXZacwgGRHdiCp
+
+OCP_TOKEN
 
 
+### *Revisando en detalle cada uno de estos parametros*
+
+**REPO_PIPELINE**= Es el presente repositorio del cual obtendremos los archivos necesarios para realizar el despliegue inicial de Jenkins, la configuracion de Hashicorp Vault con APPROLE como metodo de autentificacion y el pipeline que terminara desplegando la aplicacion de ejemplo.
+
+**CONTEXT_DIR_PIPELINE**= Sera el directorio que definiremos como contexto para la ejecucion del pipeline
+
+**VAULT_ADDR**= Es la ruta del servicio de Hashicorp Vault la cual obtendremos desde *Networking -> Routes* en nuestra consola de OCP. Ademas la misma debera de estar declarada como variable de entorno donde Hashicorp Vault se este ejecutando.
+
+**VAULT_TOKEN**= El root token que obtendremos al despliegue inicial de Hashicorp Vault.
+
+**OCP_TOKEN**= Esta variable la obtendremos directamente desde la consola de Openshift.
+
+Ejemplo
+```sh
+./setup_jenkins.sh "https://github.com/martingaryulo/vault-jenkins-poc.git" "example03" "https://vault.apps.cluster-lb9e59.lb9e59.sandbox2240.opentlc.com" "s.someshamirtoken" "oc login --token=sha256~sometoken --server=https://api.cluster-lb9e59.lb9e59.sandbox2240.opentlc.com:6443"   
 ```
+## Comprendiendo el archvio bin/setup_jenkins.sh
+
+Ahora pasaremos a revisar con mayor detenimiento que es lo que hace este archivo.
+
+- Creacion de un nuevo projecto donde se desplegara Jenkins y la aplicacion de ejemplo
+```sh
+oc new-project vault-jenkins --display-name="from Git Repo ${REPO_PIPELINE} Context Dir ${CONTEXT_DIR_PIPELINE}"
+```
+- Build de una imagen custom de Jenkins con Skopeo como utilidad para administrar imagenes.
+
+```sh
 oc new-build --strategy=docker -D $'FROM registry.access.redhat.com/ubi8/go-toolset:latest as builder\n
 ENV SKOPEO_VERSION=v1.0.0\n
 RUN git clone -b $SKOPEO_VERSION https://github.com/containers/skopeo.git && cd skopeo/ && make binary-local DISABLE_CGO=1\n
 FROM image-registry.openshift-image-registry.svc:5000/openshift/jenkins-agent-maven:v4.0 as final\n
 USER root\n
 RUN mkdir /etc/containers\n
-COPY --from=builder /opt/app-root/src/skopeo/default-policy.json /etc/containers/policy.json\n
+COPY --from=builder /opt/app-root/src/skopeo/default-policy.json /etc/containers/policy.json\
 COPY --from=builder /opt/app-root/src/skopeo/skopeo /usr/bin\n
-USER 1001' --name=maven-skopeo-agent -n vault-jenkins 
+USER 1001' --name=maven-skopeo-agent -n vault-jenkins
 ```
 
-Una vez completado el *building* creamos el configmap que posteriormente utilizará jenkins para configurar e invocar este agente:
+- Crea el configmap para que Jenkins utilizando Skopeo deploye PODs en slave al ejecutar pipelines
+```sh
+oc create -f ./manifests/agent-cm.yaml -n vault-jenkins
+```
+- Ejecuta el script "example03/configuration/setup_vault.sh" el cual configura el metodo APPROLE en Vault, como asi tambien sus politicas y secretos mediante http request.
 
+```sh
+chmod +x ${CONTEXT_DIR_PIPELINE}/configuration/setup_vault.sh
+APPROLE=$( ${CONTEXT_DIR_PIPELINE}/configuration/setup_vault.sh ${VAULT_ADDR} ${VAULT_TOKEN} )
+echo "after setup vault: "$APPROLE
+ROLE_ID=$( echo $APPROLE |  awk -F ' ' '{print $1}' )
+SECRET_ID=$( echo $APPROLE | awk -F ' ' '{print $2}' )
+VAULT_APP_TOKEN=$( echo $APPROLE | awk -F ' ' '{print $3}' )
 ```
-oc create -f ./manifests/agent-cm.yaml -n vault-jenkins 
-```
-## Despliegue (Deployment) de JENKINS Ephemeral en OPENSHIFT
-Ephemeral, sin persistencia de datos configurado o definido por código al inicio. Se recomienda desplegar la imagen de un reciente **build** del repositorio original de la version Jenkins mantenido por Red Hat. así no tendrán problemas con las dependencias. Realizar un nuevo **build** de Jenkins para Openshift del siguiente [Repositorio](https://github.com/openshift/jenkins) con el siguiente comando:
+- Despliega jenkins ephemral con el metodo S2I en el projecto vault-jenkins
 
+```sh
+oc new-app jenkins-ephemeral --param JENKINS_IMAGE_STREAM_TAG=jenkins:latest -n vault-jenkins
 ```
-oc new-build https://github.com/openshift/jenkins.git --context-dir 2 -n openshift
-```
-Para el despliegue de Jenkins utilizaremos el template que nos trae Openshift, los manifiestos y los parámetros que acepta podrán ser consultados con el siguiente comando:
+- Ya con Jenkins desplegado y en "running" crea el pipeline que se ejecutara al finalizar al obtener los ID Role y Secret de Hashicorp Vault previamente configurados 
 
+```sh
+echo "apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: ${CONTEXT_DIR_PIPELINE}-pipeline
+    app.kubernetes.io/component: ${CONTEXT_DIR_PIPELINE}-pipeline
+    app.kubernetes.io/instance: ${CONTEXT_DIR_PIPELINE}-pipeline
+  name: ${CONTEXT_DIR_PIPELINE}-pipeline
+spec:
+  runPolicy: Serial
+  source:
+    contextDir: ${CONTEXT_DIR_PIPELINE}
+    git:
+      ref: master
+      uri: ${REPO_PIPELINE}
+    type: Git
+  strategy:
+    jenkinsPipelineStrategy:
+      jenkinsfilePath: Jenkinsfile
+      env:
+      - name: VAULT_ADDR
+        value: ${VAULT_ADDR}
+    type: JenkinsPipeline" | oc create -f - -n vault-jenkins
 ```
-oc get template jenkins-ephemeral -n openshift -o yaml
-```
+- Finalmente el script solicita de nuestra intervencion para confirmar la ejecucion del pipeline previamente configurado.
 
-Entonces, pasamos como parámetro al template Openshift desplegar desde la última imagen compilada, el path del archivo de configuración definido por el configmap creado en el escenario elegido, la instalación del plugin de Hashicorp Vault y la actualización del resto de los plugins para no tener problemas con la dependencias:
-
-```
-oc new-app jenkins-ephemeral --param JENKINS_IMAGE_STREAM_TAG=jenkins:latest -e CASC_JENKINS_CONFIG=/var/jenkins_config/ PLUGINS_FORCE_UPGRADE=true INSTALL_PLUGINS=hashicorp-vault-plugin -n vault-jenkins
-oc rollout pause dc jenkins -n vault-jenkins
-oc patch dc jenkins --patch='{ "spec": { "strategy": { "type": "Recreate" }}}' -n vault-jenkins
-oc set volume dc/jenkins --add --overwrite --name=casc-jenkins --mount-path=/var/jenkins_config/ --type configmap --configmap-name jenkins-configuration-as-code -n vault-jenkins
-oc rollout resume dc jenkins -n vault-jenkins
-```
-
-## Ejecución del Pipeline del escenario elegido
-
-Para la ejecución del escenario solo es cuestión de comenzar el *Build* del *BuildConfig* definido en el propio escenario. Lo ejecutamos con el siguiente comando:
-
-```
+```sh
+read -r -s -p $"Press enter to run ${CONTEXT_DIR_PIPELINE}-pipeline: "
 oc start-build ${CONTEXT_DIR_PIPELINE}-pipeline -n vault-jenkins
 ```
 
-A modo didáctico se podrá observar el progreso del Pipeline y acceder a los logs de Jenkins desde la cónsola GUI de Openshift.
+http://vault-app-api-vault-jenkins.apps.cluster-lb9e59.lb9e59.sandbox2240.opentlc.com/api-docs
 
+## Configuracion del plugin de Hashicorp Vault para Jenkins
+Con el plugin una vez instalado y el meteodo de autentificacion APPROLE de Hashicorp Vault activado, deberemos realizar la configuracion del plugin que permitira la integracion y administracion de secretos al ejecutar los distintos trabajos en Jenkins.
+1. Primero deberemos obtener tanto el role ID como el secret ID. Esto lo imprime en pantalla al final de la ejecuccion del archivo bin/setup_jenkins.sh
+Tambien se pueden consultar mediante http request de la siguiente forma:
 
+Role ID:
+curl -k -s --header "X-Vault-Token:s.someshamirtoken" https://vault.apps.cluster-someUID.someUID.sandbox####.opentlc.com/v1/auth/approle/role/jenkins-role/role-id
 
-#### REFERENCIAS: 
-* https://www.hashicorp.com/blog/authenticating-applications-with-vault-approle/
-* https://github.com/openshift/jenkins-client-plugin
-* https://www.openshift.com/blog/integrating-hashicorp-vault-in-openshift-4
-* https://plugins.jenkins.io/hashicorp-vault-plugin/
-* https://plugins.jenkins.io/configuration-as-code/
-* https://plugins.jenkins.io/credentials/
+Secret ID: 
+curl -k -s --header "X-Vault-Token: s.someshamirtoken" --request POST https://vault.apps.cluster-someUID.someUID.sandbox####.opentlc.com/v1/auth/approle/role/jenkins-role/secret-id
+
+2. En la consola de Jenkins vamos a ir a *panel de control -> administracion -> credenciales* Alli crearemos un nuevo set de credenciales basados en Vault approle, donde ingresaremos la informacion anteriormente obtenida.
+3. Luego en *panel de control -> administracion -> configurar el sistema* iremos hasta la seccion de "Vault Plugin" donde completaremos la informacion solicitada y seleccionaremos las credenciales creadas en el paso anterior.
