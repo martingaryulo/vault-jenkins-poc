@@ -134,7 +134,7 @@ spec:
   source:
     contextDir: ${CONTEXT_DIR_PIPELINE}
     git:
-      ref: master
+      ref: main
       uri: ${REPO_PIPELINE}
     type: Git
   strategy:
