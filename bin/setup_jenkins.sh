@@ -4,7 +4,7 @@ if [ "$#" -ne 5 ]; then
     echo "Usage:"
     echo "  $0 REPO_PIPELINE CONTEXT_DIR_PIPELINE VAULT_ADDR VAULT_TOKEN OCP_TOKEN"
     #====================
-    # To Be Implemented
+    # To Be Implemented  
     #echo "  Use VAULT_ADDR=0, VAULT_TOKEN=0 and ROLE=0 to deploy Vault Server in OCP_TOKEN"
     #====================
     exit 1
@@ -17,7 +17,7 @@ VAULT_TOKEN=$4
 OCP_TOKEN=$5
 
 #====================
-# To Be Implemented
+# To Be Implemented  
 # check vault server ready (check $3-5 and vault pod unsealed), check login with VAULT_TOKEN -> if not ready do deploy using stage1_ready.sh
 # check if vault-jenkins project exists, if so delete it, else create it
 #====================
@@ -28,18 +28,15 @@ $OCP_TOKEN
 oc new-project vault-jenkins --display-name="from Git Repo ${REPO_PIPELINE} Context Dir ${CONTEXT_DIR_PIPELINE}"
 
 # Create custom agent container image with skopeo.
-
-echo "Create custom agent container image with skopeo."
-
 oc new-build --strategy=docker -D $'FROM registry.access.redhat.com/ubi8/go-toolset:latest as builder\n
 ENV SKOPEO_VERSION=v1.0.0\n
 RUN git clone -b $SKOPEO_VERSION https://github.com/containers/skopeo.git && cd skopeo/ && make binary-local DISABLE_CGO=1\n
 FROM image-registry.openshift-image-registry.svc:5000/openshift/jenkins-agent-maven:v4.0 as final\n
 USER root\n
 RUN mkdir /etc/containers\n
-COPY --from=builder /opt/app-root/src/skopeo/default-policy.json /etc/containers/policy.json\
+COPY --from=builder /opt/app-root/src/skopeo/default-policy.json /etc/containers/policy.json\n
 COPY --from=builder /opt/app-root/src/skopeo/skopeo /usr/bin\n
-USER 1001' --name=maven-skopeo-agent -n vault-jenkins
+USER 1001' --name=maven-skopeo-agent -n vault-jenkins 
 
 # Make sure that Jenkins Agent Build Pod has finished building
 while : ; do
@@ -54,18 +51,15 @@ while : ; do
 done
 
 # Set up ConfigMap with Jenkins Skopeo Agent and JCasC definitions
-
-echo "Setting up ConfigMap with Jenkins Skopeo Agent and JCas"
-
-oc create -f ./manifests/agent-cm.yaml -n vault-jenkins
+oc create -f ./manifests/agent-cm.yaml -n vault-jenkins 
 
 #====================
 # To Be Implemented
-# GitHub Vault Auth + Cubbyhole (engine) Response Wrapping
+# GitHub Vault Auth + Cubbyhole (engine) Response Wrapping 
 #====================
 
 # Setup Vault for ${CONTEXT_DIR_PIPELINE}-pipeline using Vault Http API
-# Enable Approle auth method which will be used by Jenkins
+# Enable Approle auth method which will be used by Jenkins 
 # Create Secret with the credentials to get access to the private docker push repository
 chmod +x ${CONTEXT_DIR_PIPELINE}/configuration/setup_vault.sh
 APPROLE=$( ${CONTEXT_DIR_PIPELINE}/configuration/setup_vault.sh ${VAULT_ADDR} ${VAULT_TOKEN} )
@@ -74,7 +68,7 @@ ROLE_ID=$( echo $APPROLE |  awk -F ' ' '{print $1}' )
 SECRET_ID=$( echo $APPROLE | awk -F ' ' '{print $2}' )
 VAULT_APP_TOKEN=$( echo $APPROLE | awk -F ' ' '{print $3}' )
 
-#oc create -f ./manifests/casc-jenkins-cm.yaml -n vault-jenkins
+#oc create -f ./manifests/casc-jenkins-cm.yaml -n vault-jenkins 
 #echo "apiVersion: v1
 #kind: ConfigMap
 #metadata:
@@ -98,9 +92,7 @@ VAULT_APP_TOKEN=$( echo $APPROLE | awk -F ' ' '{print $3}' )
 #                  token: "${VAULT_APP_TOKEN}"" | oc create -f - -n vault-jenkins
 
 #Deploy Jenkins Ephemeral
-echo "Deploying Jenkins Ephemeral"
-
-oc new-app jenkins-ephemeral --param JENKINS_IMAGE_STREAM_TAG=jenkins:latest -n vault-jenkins
+oc new-app jenkins-ephemeral --param JENKINS_IMAGE_STREAM_TAG=jenkins:latest PLUGINS_FORCE_UPGRADE=true INSTALL_PLUGINS=hashicorp-vault-plugin -n vault-jenkins
 #oc rollout pause dc jenkins -n vault-jenkins
 #oc patch dc jenkins --patch='{ "spec": { "strategy": { "type": "Recreate" }}}' -n vault-jenkins
 #oc set volume dc/jenkins --add --overwrite --name=casc-jenkins --mount-path=/var/jenkins_config/ --type configmap --configmap-name jenkins-configuration-as-code -n vault-jenkins
@@ -119,8 +111,6 @@ while : ; do
 done
 
 # Create pipeline build config pointing to the ${REPO_PIPELINE} with contextDir `${CONTEXT_DIR_PIPELINE}`
-echo "Create pipeline build config pointing to the ${REPO_PIPELINE} with contextDir `${CONTEXT_DIR_PIPELINE}`"
-
 echo "apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
@@ -153,7 +143,7 @@ echo    "|  (*) Add Hashicorp Vault Plugin in Jenkins AND/OR ...        |"
 echo    "|  (*) Configure AppRole Vault Credentials in Jenkins          |"
 echo    "|  (*) Press Crtl+C to run another example (TBA)               |"
 echo    "+==============================================================+"
-echo    "|  ROLE_ID:   ${ROLE_ID}"
+echo    "|  ROLE_ID:   ${ROLE_ID}"                                               
 echo    "|  SECRET_ID: ${SECRET_ID}"
 echo    "+==============================================================+"
 
