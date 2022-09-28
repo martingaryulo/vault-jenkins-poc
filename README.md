@@ -126,6 +126,10 @@ oc start-build ${CONTEXT_DIR_PIPELINE}-pipeline -n vault-jenkins
 http://vault-app-api-vault-jenkins.apps.cluster-lb9e59.lb9e59.sandbox2240.opentlc.com/api-docs
 
 ## Configuracion del plugin de Hashicorp Vault para Jenkins
+
+
+![app-role-jenkins-flow](images/app-role-jenkins-flow.png)
+
 Con el plugin una vez instalado y el meteodo de autentificacion APPROLE de Hashicorp Vault activado, deberemos realizar la configuracion del plugin que permitira la integracion y administracion de secretos al ejecutar los distintos trabajos en Jenkins.
 1. Primero deberemos obtener tanto el role ID como el secret ID. Esto lo imprime en pantalla al final de la ejecuccion del archivo bin/setup_jenkins.sh
 Tambien se pueden consultar mediante http request de la siguiente forma:
@@ -140,3 +144,51 @@ curl -k -s --header "X-Vault-Token: s.someshamirtoken" --request POST https://va
 3. Luego en *panel de control -> administracion -> configurar el sistema* iremos hasta la seccion de "Vault Plugin" donde completaremos la informacion solicitada y seleccionaremos las credenciales creadas en el paso anterior.
 
 ### Documentacion
+
+#### Hashicorp Vault
+[Hashicorp-vault-plugin]
+
+[Authenticating-applications-with-vault-approle]
+
+[Approle-overview]
+
+
+#### Openshift
+[OCP-Jenkins-sync-plugin]
+
+[OpenShift-Jenkins-Sync-Plugin-2]
+
+#### Skopeo
+[What-is-skopeo]
+
+#### Video implementacion en otros escenarios
+[HashiTalks-Vault-en-aplicaciones-de-Kubernetes]
+
+#### Repositorios
+[Repo-PoC-Jenkins]
+
+[OCP-Vault-Poc]
+
+[//]: #
+[Authenticating-applications-with-vault-approle]: <https://www.hashicorp.com/blog/authenticating-applications-with-vault-approle>
+
+[Hashicorp-vault-plugin]: <https://plugins.jenkins.io/hashicorp-vault-plugin/>
+
+[Approle-overview]: <https://www.vaultproject.io/api-docs/auth/approle>
+
+[OCP-Jenkins-sync-plugin]: <https://github.com/openshift/jenkins-sync-plugin>
+
+[OpenShift-Jenkins-Sync-Plugin-2]: <https://docs.openshift.com/container-platform/3.11/install_config/configuring_pipeline_execution.html>
+
+[What-is-skopeo]: <https://www.redhat.com/en/topics/containers/what-is-skopeo>
+
+[Repo-PoC-Jenkins]: <https://github.com/martingaryulo/vault-jenkins-poc>
+
+[OCP-Vault-Poc]: <https://github.com/ferluko/ocp-vault-poc>
+
+[HashiTalks-Vault-en-aplicaciones-de-Kubernetes]: <https://www.youtube.com/watch?v=H8VSZN3sbJs>
+
+
+
+
+
