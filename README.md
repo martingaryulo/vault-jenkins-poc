@@ -161,8 +161,12 @@ curl -k -s --header "X-Vault-Token: s.someshamirtoken" --request POST https://va
 #### Skopeo
 [What-is-skopeo]
 
-#### Video implementacion en otros escenarios
+#### Videos
+[Grabacion-meet-PoC]
+
 [HashiTalks-Vault-en-aplicaciones-de-Kubernetes]
+
+
 
 #### Repositorios
 [Repo-PoC-Jenkins]
@@ -187,6 +191,8 @@ curl -k -s --header "X-Vault-Token: s.someshamirtoken" --request POST https://va
 [OCP-Vault-Poc]: <https://github.com/ferluko/ocp-vault-poc>
 
 [HashiTalks-Vault-en-aplicaciones-de-Kubernetes]: <https://www.youtube.com/watch?v=H8VSZN3sbJs>
+
+[Grabacion-meet-PoC]: <https://drive.google.com/file/d/1_txFqMyr-27MzhBagZinaBPiYBVhkN-v/view?usp=sharing>
 
 
 

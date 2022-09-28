@@ -1,10 +1,9 @@
-Scripts de soporte y para ejecucion de PoC.
+Scripts de soporte y jenkinsfile para ejeucion de pipeline
+**Jenkinsfile**= Ejecuta el pipeline que obtiene los secretos desde Hashicorp Vault.
 
-**init_unseal_vault.sh**= Ejecuta el unseal de Hashicorp Vault siempre que se ejecute con un solo pod. No utilizar para implementacion con HA ya que requiere de unseal respetando el orden de pod 0,1,2 .
+**\configuration\010-deploy-secret-mongodb-service.yaml**= Ejecuta la creacion del servicio y secretos de mongodb.
 
-**setup_vault_server.sh**= Ejecutar para realizar un deployment de Hashicorp Vault standalone. 
-**setup_jenkins.sh**= Ejecuta la PoC de manera integra cumpliendo con los pre-requisitos establecidos.
-Para ejecutarse correctamente deben pasarsele los parametros
+**\configuration\setup_vault.sh**= Habilita, configura y popula secretos en Hashicorp Vault con el metodo approle.
 
 *REPO_PIPELINE*= Es el presente repositorio del cual obtendremos los archivos necesarios para realizar el despliegue inicial de Jenkins, la configuracion de Hashicorp Vault con APPROLE como metodo de autentificacion y el pipeline que terminara desplegando la aplicacion de ejemplo.
 
